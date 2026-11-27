@@ -1,13 +1,15 @@
 import { Injectable, signal } from '@angular/core';
-import { Gravidade, Ocorrencia } from './ocorrencia.model';
+import { Gravidade, isOcorrencia, Ocorrencia } from './ocorrencia.model';
 
 const CHAVE = 'conquista-das-aguas:ocorrencias';
 
 @Injectable({ providedIn: 'root' })
 export class OcorrenciaService {
-  ocorrencias = signal<Ocorrencia[]>(this.carregar());
+  private readonly lista = signal<Ocorrencia[]>(this.carregar());
+  readonly ocorrencias = this.lista.asReadonly();
+  readonly persistenciaErro = signal(false);
 
-  adicionar(tipo: string, bairro: string, descricao: string, gravidade: Gravidade) {
+  adicionar(tipo: string, bairro: string, descricao: string, gravidade: Gravidade): void {
     const nova: Ocorrencia = {
       id: Date.now(),
       tipo,
@@ -17,34 +19,50 @@ export class OcorrenciaService {
       resolvida: false,
       data: new Date().toLocaleDateString('pt-BR'),
     };
-    this.ocorrencias.update(lista => [...lista, nova]);
+    this.lista.update((atual) => [...atual, nova]);
     this.salvar();
   }
 
-  concluir(id: number) {
-    this.ocorrencias.update(lista =>
-      lista.map(o =>
-        o.id === id
-          ? { ...o, resolvida: !o.resolvida, resolvidaEm: o.resolvida ? undefined : new Date().toISOString() }
-          : o,
-      ));
+  concluir(id: number): void {
+    this.lista.update((atual) =>
+      atual.map((ocorrencia) =>
+        ocorrencia.id === id
+          ? {
+              ...ocorrencia,
+              resolvida: !ocorrencia.resolvida,
+              resolvidaEm: ocorrencia.resolvida ? undefined : new Date().toISOString(),
+            }
+          : ocorrencia,
+      ),
+    );
     this.salvar();
   }
 
-  remover(id: number) {
-    this.ocorrencias.update(lista => lista.filter(o => o.id !== id));
+  remover(id: number): void {
+    this.lista.update((atual) => atual.filter((ocorrencia) => ocorrencia.id !== id));
     this.salvar();
   }
 
-  private salvar() {
-    localStorage.setItem(CHAVE, JSON.stringify(this.ocorrencias()));
+  private salvar(): void {
+    try {
+      localStorage.setItem(CHAVE, JSON.stringify(this.lista()));
+      this.persistenciaErro.set(false);
+    } catch {
+      this.persistenciaErro.set(true);
+    }
   }
 
   private carregar(): Ocorrencia[] {
     try {
       const texto = localStorage.getItem(CHAVE);
-      const dados = texto ? JSON.parse(texto) : [];
-      return Array.isArray(dados) ? dados : [];
+      if (!texto) {
+        return [];
+      }
+      const dados: unknown = JSON.parse(texto);
+      if (!Array.isArray(dados)) {
+        return [];
+      }
+      return dados.filter(isOcorrencia);
     } catch {
       return [];
     }

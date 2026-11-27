@@ -11,6 +11,15 @@ describe('CardOcorrencia', () => {
     }).compileComponents();
 
     fixture = TestBed.createComponent(CardOcorrencia);
+    fixture.componentRef.setInput('ocorrencia', {
+      id: 1,
+      tipo: 'Alagamento',
+      bairro: 'Centro',
+      descricao: 'Teste',
+      gravidade: 'baixa',
+      resolvida: false,
+      data: '27/11/2026',
+    });
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

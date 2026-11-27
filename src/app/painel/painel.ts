@@ -1,9 +1,12 @@
 import { Component, computed, inject } from '@angular/core';
+import {
+  contarResolvidasNaSemana,
+  dicaDoDia,
+  META_SEMANAL,
+  percentualMeta,
+  rankingPorLocal,
+} from '../ocorrencia.domain';
 import { OcorrenciaService } from '../ocorrencia.service';
-
-const PESO = { baixa: 1, media: 2, alta: 3 };
-const META_SEMANAL = 5;
-const SEMANA_MS = 7 * 24 * 60 * 60 * 1000;
 
 const DICAS = [
   'Nunca atravesse uma rua alagada, a pé ou de carro. Pouca água já é capaz de arrastar um veículo.',
@@ -11,7 +14,7 @@ const DICAS = [
   'Em emergência durante a chuva, ligue para a Defesa Civil (199) ou para os Bombeiros (193).',
   'Esgoto a céu aberto contamina rios como o Verruga. Registre e cobre o poder público.',
   'Evite queimadas perto de nascentes e áreas de reserva. O solo exposto assoreia os rios.',
-];
+] as const;
 
 @Component({
   selector: 'app-painel',
@@ -38,51 +41,61 @@ const DICAS = [
           <span>Resolver {{ meta }} ocorrências em 7 dias</span>
           <strong>{{ naSemana() }} de {{ meta }}</strong>
         </div>
-        <div class="barra-trilho"><div class="barra-nivel meta-nivel" [style.width.%]="pctMeta()"></div></div>
+        <div
+          class="barra-trilho"
+          role="progressbar"
+          [attr.aria-valuenow]="naSemana()"
+          aria-valuemin="0"
+          [attr.aria-valuemax]="meta"
+          [attr.aria-label]="'Progresso da meta semanal: ' + naSemana() + ' de ' + meta"
+        >
+          <div class="barra-nivel meta-nivel" [style.width.%]="pctMeta()"></div>
+        </div>
         <p class="nota">
           {{ naSemana() >= meta ? 'Meta da semana batida. Bom trabalho!' : 'Marque ocorrências como resolvidas para avançar.' }}
         </p>
       </div>
 
       <h2>Locais por nível de risco</h2>
-      @for (r of ranking(); track r.local) {
-        <div class="barra-linha">
-          <div class="barra-info"><span>{{ r.local }}</span><strong>{{ r.pontos }} pontos</strong></div>
-          <div class="barra-trilho"><div class="barra-nivel" [style.width.%]="r.pct"></div></div>
-        </div>
-      } @empty {
-        <p class="vazio">Nenhuma ocorrência aberta no momento.</p>
-      }
+      <ul class="ranking">
+        @for (r of ranking(); track r.local) {
+          <li class="barra-linha">
+            <div class="barra-info">
+              <span>{{ r.local }}</span>
+              <strong>{{ r.pontos }} pontos</strong>
+            </div>
+            <div
+              class="barra-trilho"
+              role="progressbar"
+              [attr.aria-valuenow]="r.pontos"
+              aria-valuemin="0"
+              [attr.aria-valuemax]="maiorPontos()"
+              [attr.aria-label]="'Risco em ' + r.local + ': ' + r.pontos + ' pontos'"
+            >
+              <div class="barra-nivel" [style.width.%]="r.pct"></div>
+            </div>
+          </li>
+        } @empty {
+          <li class="vazio" role="status">Nenhuma ocorrência aberta no momento.</li>
+        }
+      </ul>
       <p class="nota">Cada ocorrência aberta soma 1 ponto (baixa), 2 (média) ou 3 (alta) ao local.</p>
 
       <h2>Dica do dia</h2>
       <p class="dica">{{ dica }}</p>
-    </div>`,
+    </div>
+  `,
 })
 export class Painel {
-  private service = inject(OcorrenciaService);
+  private readonly service = inject(OcorrenciaService);
 
-  abertas = computed(() => this.service.ocorrencias().filter(o => !o.resolvida));
-  resolvidas = computed(() => this.service.ocorrencias().filter(o => o.resolvida).length);
-  total = computed(() => this.service.ocorrencias().length);
-
-  meta = META_SEMANAL;
-  naSemana = computed(() =>
-    this.service.ocorrencias().filter(o =>
-      o.resolvida && o.resolvidaEm && Date.now() - Date.parse(o.resolvidaEm) < SEMANA_MS).length);
-  pctMeta = computed(() => Math.min(100, (this.naSemana() / META_SEMANAL) * 100));
-
-  ranking = computed(() => {
-    const soma = new Map<string, number>();
-    for (const o of this.abertas()) {
-      soma.set(o.bairro, (soma.get(o.bairro) ?? 0) + PESO[o.gravidade]);
-    }
-    const lista = [...soma]
-      .map(([local, pontos]) => ({ local, pontos }))
-      .sort((a, b) => b.pontos - a.pontos);
-    const maior = lista[0]?.pontos ?? 1;
-    return lista.map(r => ({ ...r, pct: (r.pontos / maior) * 100 }));
-  });
-
-  dica = DICAS[Math.floor(Date.now() / 86400000) % DICAS.length];
+  readonly meta = META_SEMANAL;
+  readonly abertas = computed(() => this.service.ocorrencias().filter((o) => !o.resolvida));
+  readonly resolvidas = computed(() => this.service.ocorrencias().filter((o) => o.resolvida).length);
+  readonly total = computed(() => this.service.ocorrencias().length);
+  readonly naSemana = computed(() => contarResolvidasNaSemana(this.service.ocorrencias()));
+  readonly pctMeta = computed(() => percentualMeta(this.naSemana(), META_SEMANAL));
+  readonly ranking = computed(() => rankingPorLocal(this.abertas()));
+  readonly maiorPontos = computed(() => this.ranking()[0]?.pontos ?? 0);
+  readonly dica = dicaDoDia(DICAS, Date.now());
 }
