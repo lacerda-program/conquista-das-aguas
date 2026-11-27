@@ -8,9 +8,23 @@ export const TIPOS_OCORRENCIA = [
   'Alagamento',
   'Descarte irregular',
   'Queimada perto de nascente',
+  'Vazamento na rede de água',
+  'Risco de deslizamento / Erosão',
 ] as const;
 
 export type TipoOcorrencia = (typeof TIPOS_OCORRENCIA)[number];
+
+export const BAIRROS_CONQUISTA = [
+  'Centro',
+  'Bairro Brasil',
+  'Candeias',
+  'Jurema',
+  'Alto Maron',
+  'Bateias',
+  'Patagônia',
+  'Recreio',
+  'Felícia',
+] as const;
 
 export type FiltroOcorrencia = 'abertas' | 'resolvidas' | 'todas';
 
@@ -23,6 +37,7 @@ export interface Ocorrencia {
   resolvida: boolean;
   resolvidaEm?: string;
   data: string;
+  protocolo?: string;
 }
 
 export function isGravidade(value: unknown): value is Gravidade {
@@ -43,6 +58,7 @@ export function isOcorrencia(value: unknown): value is Ocorrencia {
     isGravidade(item['gravidade']) &&
     typeof item['resolvida'] === 'boolean' &&
     typeof item['data'] === 'string' &&
-    (item['resolvidaEm'] === undefined || typeof item['resolvidaEm'] === 'string')
+    (item['resolvidaEm'] === undefined || typeof item['resolvidaEm'] === 'string') &&
+    (item['protocolo'] === undefined || typeof item['protocolo'] === 'string')
   );
 }
